@@ -27,8 +27,12 @@
 fqdn = node['set_fqdn']
 if fqdn
   fqdn = fqdn.sub('*', node.name)
+
+  return if fqdn == node['fqdn']
+
   fqdn =~ /^([^.]+)/
   hostname = $1
+  domain = fqdn.sub(/^#{hostname}./, "")
 
   case node[:platform]
   when "freebsd"
@@ -65,11 +69,18 @@ if fqdn
     hostname fqdn
     aliases [ hostname ]
     action :create
-    notifies :reload, "ohai[reload]"
+    if node['set_fqdn_immediate']
+      notifies :reload, "ohai[reload]", :immediately
+    else
+      notifies :reload, "ohai[reload]"
+    end
   end
 
   ohai "reload" do
     action :nothing
+    node.automatic_attrs["hostname"] = hostname
+    node.automatic_attrs["fqdn"] = fqdn 
+    node.automatic_attrs["domain"] = domain 
   end
 else
   log "Please set the set_fqdn attribute to desired hostname" do
